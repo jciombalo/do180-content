@@ -1,0 +1,99 @@
+#!/usr/bin/bash
+#
+# Copyright 2021 Red Hat, Inc.
+#
+# NAME
+#     lab-multicontainer-openshift - start/finish script for DO180
+#
+# SYNOPSIS
+#     lab-example {start|finish}
+#
+#        start  - configures the environment at the start of a lab or exercise.
+#        finish - executes any administrative tasks after completion of a lab or exercise.
+#
+#     All functions only work on workstation
+#
+# DESCRIPTION
+#     This script configures GE: Creating an Application on OpenShift
+#
+# CHANGELOG
+#   * Mon Apr 26 2021 Harpal Singh <harpasin@redhat.com>
+#   - Initial code.
+
+PATH=/usr/bin:/bin:/usr/sbin:/sbin
+
+# Initialize and set some variables
+run_as_root='true'
+this="multicontainer-application"
+title="Guided Exercise: Creating an Application on OpenShift"
+target='workstation'
+
+# This defines which subcommands are supported (solve, reset, etc.).
+# Corresponding lab_COMMAND functions must be defined.
+declare -a valid_commands=(start finish)
+
+# Additional functions for this grading script
+
+function print_usage {
+  local problem_name=$(basename $0 | sed -e 's/^lab-//')
+  cat << EOF
+This script controls the start and completion of this lab.
+Usage: lab ${problem_name} COMMAND
+       lab ${problem_name} -h|--help
+
+COMMAND is one of: ${valid_commands[@]}
+
+EOF
+}
+
+function lab_start {
+  print_header "Setting up ${target} for the ${title}"
+
+  check_podman_registry_config
+
+  print_line
+
+  ocp4_is_cluster_up
+
+  pad " · Ensure application project does not exist"
+  delete_project ${RHT_OCP4_DEV_USER}-application
+  success_if_equal $? 0
+
+  grab_lab_files
+  print_line
+}
+
+function lab_finish {
+  print_header "Completing the ${title}"
+
+  ocp4_login_as_developer
+  pad " · Removing ${RHT_OCP4_DEV_USER}-application project"
+  if [ $? -eq 0 ]; then
+    delete_project ${RHT_OCP4_DEV_USER}-application
+    success_if_equal $? 0
+  else
+    print_FAIL
+  fi
+
+pad " · Removing the project directory"
+  if remove_directory /home/student/DO180/labs/multicontainer-application; then
+    print_SUCCESS
+  else
+    print_FAIL
+  fi
+  pad " · Removing the solution directory"
+  if remove_directory /home/student/DO180/solutions/multicontainer-application; then
+    print_SUCCESS
+  else
+    print_FAIL
+  fi
+
+}
+
+############### Don't EVER change anything below this line ###############
+
+# Source library of functions
+source /usr/local/lib/labtool.shlib
+source /usr/local/lib/labtool.do180.shlib
+
+grading_main_program "$@"
